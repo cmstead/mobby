@@ -33,6 +33,7 @@ const elements = {
   expiryDescription: document.querySelector("#expiry-description"),
   startNextTurn: document.querySelector("#start-next-turn"),
   skipDriver: document.querySelector("#skip-driver"),
+  skipBreak: document.querySelector("#skip-break"),
   cancelPopup: document.querySelector("#cancel-popup")
 };
 
@@ -258,6 +259,7 @@ function updateExpiryPopup() {
   const canSkip = count >= 2 && state.popup !== "break";
 
   elements.skipDriver.hidden = !canSkip;
+  elements.skipBreak.hidden = state.popup !== "break";
   elements.cancelPopup.hidden = state.popup !== "resume";
 
   if (state.popup === "break") {
@@ -436,6 +438,16 @@ elements.skipDriver.addEventListener("click", () => {
     state.skipOffset = (state.skipOffset + 1) % state.participants.length;
     render();
   }
+});
+
+elements.skipBreak.addEventListener("click", () => {
+  if (state.popup !== "break" || state.participants.length < 1) return;
+  state.phase = "driving";
+  state.drivenSeconds = 0;
+  state.currentIndex = (state.currentIndex + 1) % state.participants.length;
+  state.turnNumber += 1;
+  state.remainingSeconds = state.durationSeconds;
+  startTimer();
 });
 
 elements.cancelPopup.addEventListener("click", () => {

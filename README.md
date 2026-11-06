@@ -52,5 +52,7 @@ Both lists are saved locally.
   driver. Otherwise the regular next-driver prompt appears.
 - When the break ends, a prompt (also brought to the front) starts the next
   driver's session.
+- **Skip break:** the break prompt also offers "Skip break". It skips the break,
+  resets the time until the next break, and starts the next driver's turn.
 
 Your participant list and timer settings are saved locally in the app.
