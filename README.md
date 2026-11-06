@@ -1,4 +1,4 @@
-# Mob Timer
+# Mobby the Mob Timer
 
 A lightweight desktop timer for mob programming sessions. Add your team, choose
 how long each driver has, then start the rotation.
