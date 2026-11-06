@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'none';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#111827" />
+    <title>Mob Timer</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./renderer.js" defer></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">M</span>
+          <span>Mobby</span>
+        </div>
+        <p class="topbar-note">Make space for every voice.</p>
+      </header>
+
+      <section class="timer-card" aria-labelledby="session-title">
+        <div class="card-heading">
+          <div>
+            <p class="eyebrow">Working Session</p>
+            <h1 id="session-title">One team, one keyboard.</h1>
+          </div>
+          <span class="session-status" id="session-status" aria-live="polite">
+            READY
+          </span>
+        </div>
+
+        <div class="timer-layout">
+          <div class="timer-display" aria-live="off">
+            <span class="eyebrow">TIME LEFT</span>
+            <output id="time-left" aria-label="Time left">05:00</output>
+            <span class="turn-caption" id="turn-caption">Turn 1</span>
+          </div>
+
+          <div class="driver-panel">
+            <div class="person-icon" aria-hidden="true">⌨</div>
+            <div>
+              <span class="eyebrow" id="driver-label">CURRENT DRIVER</span>
+              <h2 id="current-driver">Add your team</h2>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-track" role="progressbar" aria-label="Turn progress">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+
+        <div class="next-driver">
+          <span>NEXT UP</span>
+          <strong id="next-driver">Add participants below</strong>
+        </div>
+
+        <div class="controls">
+          <button class="button button-primary" id="start-pause" type="button">
+            Start session
+          </button>
+          <button class="button button-secondary" id="skip-turn" type="button">
+            Skip turn <span aria-hidden="true">→</span>
+          </button>
+          <button class="button button-quiet" id="reset-timer" type="button">
+            Reset
+          </button>
+        </div>
+      </section>
+
+      <section class="settings-grid" aria-label="Session setup">
+        <section class="panel duration-panel" aria-labelledby="duration-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">SESSION SETUP</p>
+              <h2 id="duration-title">Turn length</h2>
+            </div>
+            <span class="duration-icon" aria-hidden="true">◷</span>
+          </div>
+          <label for="duration">Minutes per driver</label>
+          <div class="duration-input">
+            <input id="duration" type="number" min="1" max="60" step="1" value="5" />
+            <span>min</span>
+          </div>
+          <label class="field-gap" for="break-interval">Minutes between breaks</label>
+          <div class="duration-input">
+            <input id="break-interval" type="number" min="1" max="240" step="1" value="50" />
+            <span>min</span>
+          </div>
+          <label class="field-gap" for="break-duration">Break length</label>
+          <div class="duration-input">
+            <input id="break-duration" type="number" min="1" max="60" step="1" value="10" />
+            <span>min</span>
+          </div>
+          <p class="helper-text">Settings can be changed while the timer is stopped or paused.</p>
+        </section>
+
+        <section class="panel team-panel" aria-labelledby="team-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">THE MOB</p>
+              <h2 id="team-title">Your team <span id="team-count">(0)</span></h2>
+            </div>
+            <span class="team-icon" aria-hidden="true">♧</span>
+          </div>
+          <form id="add-person-form" class="add-person-form">
+            <label class="visually-hidden" for="person-name">Participant name</label>
+            <input
+              id="person-name"
+              type="text"
+              maxlength="40"
+              placeholder="Add a participant..."
+              autocomplete="off"
+              required
+            />
+            <button type="submit" aria-label="Add participant">+</button>
+          </form>
+          <ul id="participant-list" class="participant-list"></ul>
+          <div class="potential-section" id="potential-section" hidden>
+            <h3 class="potential-heading">
+              Potential mobbers <span id="potential-count">(0)</span>
+            </h3>
+            <ul id="potential-list" class="participant-list potential-list"></ul>
+          </div>
+          <p class="helper-text" id="team-helper">Add at least one driver to get started.</p>
+        </section>
+      </section>
+
+      <dialog class="expiry-overlay" id="expiry-popup" aria-labelledby="expiry-title" aria-describedby="expiry-description">
+        <div class="expiry-card">
+          <span class="expiry-icon" aria-hidden="true">⌛</span>
+          <p class="eyebrow" id="expiry-eyebrow">DRIVER ROTATION</p>
+          <h2 id="expiry-title">Time's up!</h2>
+          <p id="expiry-description" class="expiry-description"></p>
+          <div class="expiry-actions">
+            <button class="button button-primary expiry-button" id="start-next-turn" type="button">
+              Start next driver's turn
+            </button>
+            <button class="button button-secondary expiry-button" id="skip-driver" type="button" hidden>
+              Skip driver
+            </button>
+            <button class="button button-quiet expiry-button" id="cancel-popup" type="button" hidden>
+              Keep paused
+            </button>
+          </div>
+        </div>
+      </dialog>
+
+      <footer class="footer-note">
+        <span class="footer-dot" aria-hidden="true"></span>
+        Rotation keeps the mob moving. Keep collaborating between turns.
+      </footer>
+    </main>
+  </body>
+</html>
