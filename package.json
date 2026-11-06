@@ -1,5 +1,5 @@
 {
-  "name": "mob-programming-timer",
+  "name": "mobby",
   "version": "1.0.0",
   "description": "A simple rotating timer for mob programming sessions.",
   "main": "src/main.js",
