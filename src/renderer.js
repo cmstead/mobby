@@ -31,6 +31,8 @@ const elements = {
   startNextTurn: document.querySelector("#start-next-turn"),
   skipDriver: document.querySelector("#skip-driver"),
   skipBreak: document.querySelector("#skip-break"),
+  chooseDriver: document.querySelector("#choose-driver"),
+  chooseDriverHint: document.querySelector("#choose-driver-hint"),
   cancelPopup: document.querySelector("#cancel-popup")
 };
 
@@ -45,6 +47,8 @@ function loadSavedSession() {
 
 const savedSession = loadSavedSession();
 const state = logic.createState(savedSession);
+let choosingDriver = false;
+let finishedDriver = null;
 
 elements.duration.value = String(savedSession.duration);
 elements.breakInterval.value = String(savedSession.breakInterval);
@@ -65,8 +69,7 @@ function persistSession() {
 const formatTime = logic.formatTime;
 
 function currentRemainingSeconds() {
-  if (!state.running || state.deadline === null) return state.remainingSeconds;
-  return Math.max(0, Math.ceil((state.deadline - Date.now()) / 1000));
+  return logic.currentRemainingSeconds(state, Date.now());
 }
 
 function updateTimerDisplay() {
@@ -79,18 +82,26 @@ function updateTimerDisplay() {
 
 function updateParticipants() {
   const count = state.participants.length;
+  const hasUpcomingSelection = state.currentDriverSelected && (
+    state.phase === "break" ||
+    state.popup === "next" ||
+    state.popup === "break" ||
+    state.popup === "afterBreak"
+  );
   elements.teamCount.textContent = `(${count})`;
   elements.currentDriver.textContent = state.phase === "break"
     ? "Break time"
     : count ? state.participants[state.currentIndex] : "Add your team";
   elements.driverLabel.textContent = state.phase === "break" ? "STEP AWAY" : "CURRENT DRIVER";
   elements.nextDriver.textContent = count
-    ? state.participants[candidateIndex()]
+    ? hasUpcomingSelection
+      ? state.participants[state.currentIndex]
+      : state.participants[candidateIndex()]
     : "Add participants below";
   elements.teamHelper.textContent = count
-    ? "Driver order follows the list. Select “Next” to choose who drives next."
+    ? "Driver order follows the list. Select a participant to set the current driver."
     : "Add at least one driver to get started.";
-  const skipDisabled = count < 2 || state.phase === "break";
+  const skipDisabled = count < 2 || state.phase === "break" || choosingDriver;
   elements.skipTurn.disabled = skipDisabled;
   elements.skipTurn.setAttribute("aria-disabled", String(skipDisabled));
   elements.participantList.replaceChildren();
@@ -104,10 +115,16 @@ function updateParticipants() {
     if (count > 0 && index === state.currentIndex) {
       const currentTag = document.createElement("span");
       currentTag.className = "participant-tag";
-      currentTag.textContent = "DRIVING";
+      if (state.phase === "break") {
+        currentTag.textContent = state.currentDriverSelected ? "UP NEXT" : "LAST DRIVER";
+      } else if (state.popup && state.popup !== "resume") {
+        currentTag.textContent = state.currentDriverSelected ? "UP NEXT" : "LAST DRIVER";
+      } else {
+        currentTag.textContent = state.running ? "DRIVING" : "CURRENT";
+      }
       nameElement.append(currentTag);
     }
-    item.className = `participant${count > 0 && index === state.currentIndex ? " is-current" : ""}${state.selectedNextIndex === index ? " is-next" : ""}`;
+    item.className = `participant${count > 0 && index === state.currentIndex ? " is-current" : ""}`;
     const sitOutButton = document.createElement("button");
     sitOutButton.className = "rotation-toggle";
     sitOutButton.type = "button";
@@ -115,15 +132,17 @@ function updateParticipants() {
     sitOutButton.setAttribute("aria-label", `Remove ${name} from rotation`);
     sitOutButton.title = "Move to potential mobbers";
     sitOutButton.addEventListener("click", () => sitOut(index));
-    const selectNextButton = document.createElement("button");
-    selectNextButton.className = "rotation-toggle select-next";
-    selectNextButton.type = "button";
-    selectNextButton.textContent = "Next";
-    selectNextButton.setAttribute("aria-label", `Set ${name} as next driver`);
-    selectNextButton.setAttribute("aria-pressed", String(state.selectedNextIndex === index));
-    selectNextButton.disabled = state.running;
-    selectNextButton.title = state.running ? "Pause the timer to select the next driver" : "Set as next driver";
-    selectNextButton.addEventListener("click", () => selectNextDriver(index));
+    const selectDriverButton = document.createElement("button");
+    selectDriverButton.className = "rotation-toggle select-driver";
+    selectDriverButton.type = "button";
+    selectDriverButton.textContent = "Select";
+    selectDriverButton.setAttribute("aria-label", `Select ${name} as current driver`);
+    selectDriverButton.setAttribute("aria-pressed", String(state.currentIndex === index));
+    selectDriverButton.disabled = state.running;
+    selectDriverButton.title = state.running
+      ? "Pause the timer to select the current driver"
+      : "Set as current driver";
+    selectDriverButton.addEventListener("click", () => selectDriver(index));
     const removeButton = document.createElement("button");
     removeButton.className = "remove-person";
     removeButton.type = "button";
@@ -133,7 +152,7 @@ function updateParticipants() {
     removeButton.addEventListener("click", () => removeParticipant(index));
     const actions = document.createElement("span");
     actions.className = "participant-actions";
-    actions.append(selectNextButton, sitOutButton, removeButton);
+    actions.append(selectDriverButton, sitOutButton, removeButton);
     item.append(nameElement, actions);
     elements.participantList.append(item);
   });
@@ -175,10 +194,13 @@ function updateControls() {
   const hasParticipants = state.participants.length > 0;
   const canRandomize = state.participants.length > 1;
   elements.startPause.disabled = !hasParticipants;
-  elements.startPause.textContent = state.running ? "Pause session" : "Start session";
+  elements.startPause.textContent = choosingDriver ? "Continue to popup" : state.running ? "Pause session" : "Start session";
+  elements.chooseDriverHint.hidden = !choosingDriver;
   elements.status.textContent = state.running
     ? (state.phase === "break" ? "ON BREAK" : "IN PROGRESS")
-    : "READY";
+    : state.popup === "resume" || (!state.popup && (state.paused || state.phase === "break"))
+      ? "PAUSED"
+      : state.popup ? "WAITING" : "READY";
   elements.status.classList.toggle("is-running", state.running);
   elements.duration.disabled = state.running;
   elements.breakInterval.disabled = state.running;
@@ -199,7 +221,7 @@ function candidateIndex() {
 }
 
 function updateExpiryPopup() {
-  if (!state.popup) {
+  if (!state.popup || choosingDriver) {
     if (elements.expiryPopup.open) {
       elements.expiryPopup.close();
       window.mobTimerWindow?.releaseExpiryToFront();
@@ -210,7 +232,10 @@ function updateExpiryPopup() {
 
   const count = state.participants.length;
   const current = count ? state.participants[state.currentIndex] : "The driver";
-  const next = count ? state.participants[candidateIndex()] : "the next driver";
+  const expiredDriver = finishedDriver ?? current;
+  const next = count
+    ? state.participants[state.currentDriverSelected ? state.currentIndex : candidateIndex()]
+    : "the next driver";
   const canSkip = count >= 2 && state.popup !== "break";
 
   elements.skipDriver.hidden = !canSkip;
@@ -220,7 +245,7 @@ function updateExpiryPopup() {
   if (state.popup === "break") {
     elements.expiryEyebrow.textContent = "BREAK TIME";
     elements.expiryTitle.textContent = "Time for a break!";
-    elements.expiryDescription.textContent = `${current} has finished driving. Step away from the keyboard and rest.`;
+    elements.expiryDescription.textContent = `${expiredDriver} has finished driving. Step away from the keyboard and rest.`;
     elements.startNextTurn.textContent = "Begin break";
   } else if (state.popup === "resume") {
     elements.expiryEyebrow.textContent = "PAUSED";
@@ -237,7 +262,7 @@ function updateExpiryPopup() {
   } else {
     elements.expiryEyebrow.textContent = "DRIVER ROTATION";
     elements.expiryTitle.textContent = "Time's up!";
-    elements.expiryDescription.textContent = `${current}'s turn is over. Pass the keyboard to ${next}.`;
+    elements.expiryDescription.textContent = `${expiredDriver}'s turn is over. Pass the keyboard to ${next}.`;
     elements.startNextTurn.textContent = `Start ${next}'s turn`;
     elements.skipDriver.textContent = `Skip ${next}`;
   }
@@ -257,7 +282,12 @@ function stopTicking() {
 }
 
 function pauseTimer() {
-  state.remainingSeconds = currentRemainingSeconds();
+  const remaining = currentRemainingSeconds();
+  if (state.running && state.participants.length > 0 && remaining <= 0) {
+    finishTimer();
+    return;
+  }
+  state.remainingSeconds = remaining;
   state.paused = state.phase === "driving" && state.participants.length > 0;
   state.running = false;
   state.deadline = null;
@@ -265,22 +295,28 @@ function pauseTimer() {
   render();
 }
 
-function tick() {
-  if (currentRemainingSeconds() <= 0) {
-    logic.expireTurn(state);
-    state.running = false;
-    state.deadline = null;
-    stopTicking();
-    render();
-    elements.startNextTurn.focus();
-    return;
+function finishTimer() {
+  if (state.phase === "driving") {
+    finishedDriver = state.participants[state.currentIndex] ?? null;
   }
+  logic.expireTurn(state);
+  state.running = false;
+  state.paused = false;
+  state.deadline = null;
+  stopTicking();
+  render();
+  elements.startNextTurn.focus();
+}
+
+function tick() {
+  if (currentRemainingSeconds() <= 0) return finishTimer();
   updateTimerDisplay();
 }
 
 function startTimer() {
   if (state.participants.length === 0) return;
   if (state.remainingSeconds <= 0) state.remainingSeconds = phaseSeconds();
+  if (state.phase === "driving") state.currentDriverSelected = false;
   state.popup = null;
   state.paused = false;
   state.skipOffset = 0;
@@ -292,6 +328,7 @@ function startTimer() {
 }
 
 function resetTimer() {
+  choosingDriver = false;
   logic.resetState(state);
   stopTicking();
   render();
@@ -329,13 +366,18 @@ function randomizeDrivers() {
   render();
 }
 
-function selectNextDriver(index) {
-  if (!logic.selectNextDriver(state, index)) return;
+function selectDriver(index) {
+  if (!logic.selectCurrentDriver(state, index)) return;
   render();
+  elements.participantList.children[index]?.querySelector(".select-driver")?.focus();
 }
 
 elements.startPause.addEventListener("click", () => {
-  if (state.running) {
+  if (choosingDriver) {
+    choosingDriver = false;
+    render();
+    elements.startNextTurn.focus();
+  } else if (state.running) {
     pauseTimer();
   } else if (state.paused) {
     state.popup = "resume";
@@ -373,6 +415,12 @@ elements.skipBreak.addEventListener("click", () => {
 
 elements.randomizeDrivers.addEventListener("click", () => {
   randomizeDrivers();
+});
+
+elements.chooseDriver.addEventListener("click", () => {
+  choosingDriver = true;
+  render();
+  elements.participantList.children[candidateIndex()]?.querySelector(".select-driver")?.focus();
 });
 
 elements.cancelPopup.addEventListener("click", () => {

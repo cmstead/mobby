@@ -56,6 +56,24 @@ describe("formatTime", () => {
   });
 });
 
+describe("remaining time at the deadline", () => {
+  test("uses the deadline while running and rounds up until it is reached", () => {
+    const s = make({ running: true, deadline: 10000, remainingSeconds: 60 });
+    assert.equal(logic.currentRemainingSeconds(s, 8999), 2);
+    assert.equal(logic.currentRemainingSeconds(s, 9999), 1);
+    assert.equal(logic.currentRemainingSeconds(s, 10000), 0);
+    assert.equal(logic.currentRemainingSeconds(s, 10001), 0);
+  });
+
+  test("uses stored remaining time when stopped or no deadline exists", () => {
+    const s = make({ remainingSeconds: 23, deadline: 10000 });
+    assert.equal(logic.currentRemainingSeconds(s, 20000), 23);
+    s.running = true;
+    s.deadline = null;
+    assert.equal(logic.currentRemainingSeconds(s, 20000), 23);
+  });
+});
+
 describe("Feature: Pop up when time is up", () => {
   test("expired turn shows the next-driver popup and stops remaining time", () => {
     const s = make();
@@ -86,64 +104,73 @@ describe("Feature: Pop up when time is up", () => {
 });
 
 describe("Feature: select driver", () => {
-  test("selecting a driver sets them as next without changing rotation order or current driver", () => {
-    const s = make({ popup: "next" });
+  test("selecting a driver sets them as current without changing rotation order", () => {
+    const s = make();
     const originalOrder = [...s.participants];
 
-    assert.equal(logic.selectNextDriver(s, 2), true);
-    assert.equal(logic.candidateIndex(s), 2);
-    assert.equal(s.currentIndex, 0);
-    assert.deepEqual(s.participants, originalOrder);
-
-    logic.acceptPopup(s);
+    assert.equal(logic.selectCurrentDriver(s, 2), true);
     assert.equal(s.currentIndex, 2);
+    assert.equal(logic.candidateIndex(s), 0);
     assert.deepEqual(s.participants, originalOrder);
   });
 
-  test("selection is rejected while the timer is running", () => {
+  test("current-driver selection is rejected while the timer is running", () => {
     const s = make();
-    logic.selectNextDriver(s, 2);
+    logic.selectCurrentDriver(s, 2);
     s.running = true;
     const before = { ...s, participants: [...s.participants], potential: [...s.potential] };
 
-    assert.equal(logic.selectNextDriver(s, 1), false);
+    assert.equal(logic.selectCurrentDriver(s, 1), false);
     assert.deepEqual(s, before);
-    assert.equal(logic.candidateIndex(s), 2);
+    assert.equal(s.currentIndex, 2);
   });
 
-  test("selection rejects indexes outside the rotation", () => {
+  test("current-driver selection rejects indexes outside the rotation", () => {
     const s = make();
-    assert.equal(logic.selectNextDriver(s, -1), false);
-    assert.equal(logic.selectNextDriver(s, 3), false);
-    assert.equal(s.selectedNextIndex, null);
+    assert.equal(logic.selectCurrentDriver(s, -1), false);
+    assert.equal(logic.selectCurrentDriver(s, 3), false);
+    assert.equal(s.currentIndex, 0);
   });
 
-  test("selection follows a participant when earlier participants leave and clears if they leave", () => {
-    const s = make();
-    logic.selectNextDriver(s, 2);
-    logic.sitOut(s, 0);
-    assert.equal(s.participants[logic.candidateIndex(s)], "Jo");
-    logic.leaveRotation(s, 1);
-    assert.equal(s.selectedNextIndex, null);
-    assert.equal(s.participants[logic.candidateIndex(s)], "Alex");
-  });
-
-  test("selection survives a break and is consumed by the next turn", () => {
-    const s = make({ popup: "break" });
-    logic.selectNextDriver(s, 2);
-    logic.acceptPopup(s);
-    assert.equal(s.phase, "break");
-    assert.equal(logic.candidateIndex(s), 2);
-    logic.expireTurn(s);
+  test("selection from a turn-expiry popup becomes current and starts without advancing", () => {
+    const s = make({ popup: "next", remainingSeconds: 0 });
+    const originalOrder = [...s.participants];
+    assert.equal(logic.selectCurrentDriver(s, 2), true);
+    assert.equal(s.currentIndex, 2);
+    assert.equal(s.currentDriverSelected, true);
+    assert.deepEqual(s.participants, originalOrder);
     logic.acceptPopup(s);
     assert.equal(s.currentIndex, 2);
-    assert.equal(s.selectedNextIndex, null);
-    assert.equal(logic.candidateIndex(s), 0);
+    assert.equal(s.currentDriverSelected, false);
+    assert.deepEqual(s.participants, originalOrder);
   });
 
-  test("skipping a selected next driver follows the unchanged rotation", () => {
+  test("selection from a break popup remains current through the break and starts after it", () => {
+    const s = make({ popup: "break" });
+    const originalOrder = [...s.participants];
+    assert.equal(logic.selectCurrentDriver(s, 2), true);
+    assert.equal(s.currentIndex, 2);
+    logic.acceptPopup(s);
+    assert.equal(s.phase, "break");
+    assert.equal(s.currentIndex, 2);
+    logic.expireTurn(s);
+    assert.equal(s.popup, "afterBreak");
+    logic.acceptPopup(s);
+    assert.equal(s.currentIndex, 2);
+    assert.equal(s.phase, "driving");
+    assert.deepEqual(s.participants, originalOrder);
+  });
+
+  test("selection from a break-end popup starts that selected current driver", () => {
+    const s = make({ popup: "afterBreak" });
+    assert.equal(logic.selectCurrentDriver(s, 1), true);
+    logic.acceptPopup(s);
+    assert.equal(s.currentIndex, 1);
+  });
+
+  test("skipping the selected popup driver starts the following driver", () => {
     const s = make({ popup: "next" });
-    logic.selectNextDriver(s, 2);
+    logic.selectCurrentDriver(s, 2);
     assert.equal(logic.cycleSkipOffset(s), true);
     assert.equal(logic.candidateIndex(s), 0);
     logic.acceptPopup(s);
@@ -151,18 +178,34 @@ describe("Feature: select driver", () => {
     assert.deepEqual(s.participants, ["Sam", "Alex", "Jo"]);
   });
 
-  test("skipping the current driver or break starts the selected driver", () => {
+  test("skipping a selected current driver advances and skipping a break keeps the chosen driver", () => {
     const paused = make({ paused: true });
-    logic.selectNextDriver(paused, 2);
+    logic.selectCurrentDriver(paused, 2);
     logic.skipCurrentDriver(paused);
-    assert.equal(paused.currentIndex, 2);
-    assert.equal(paused.selectedNextIndex, null);
+    assert.equal(paused.currentIndex, 0);
 
     const onBreak = make({ popup: "break" });
-    logic.selectNextDriver(onBreak, 2);
+    logic.selectCurrentDriver(onBreak, 2);
     assert.equal(logic.skipBreak(onBreak), true);
     assert.equal(onBreak.currentIndex, 2);
-    assert.equal(onBreak.selectedNextIndex, null);
+    assert.equal(onBreak.currentDriverSelected, false);
+  });
+
+  test("selection made during a paused break starts that driver when the break ends", () => {
+    const s = make({ phase: "break", remainingSeconds: 30 });
+    assert.equal(logic.selectCurrentDriver(s, 2), true);
+    logic.expireTurn(s);
+    assert.equal(s.popup, "afterBreak");
+    logic.acceptPopup(s);
+    assert.equal(s.currentIndex, 2);
+  });
+
+  test("selection in the resume popup resumes the selected current driver", () => {
+    const s = make({ popup: "resume", paused: true, remainingSeconds: 45 });
+    assert.equal(logic.selectCurrentDriver(s, 2), true);
+    assert.equal(logic.acceptPopup(s), true);
+    assert.equal(s.currentIndex, 2);
+    assert.equal(s.remainingSeconds, 45);
   });
 });
 

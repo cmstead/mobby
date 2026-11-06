@@ -71,7 +71,7 @@
       skipOffset: 0,
       paused: false,
       currentIndex: 0,
-      selectedNextIndex: null,
+      currentDriverSelected: false,
       turnNumber: 1,
       running: false,
       deadline: null,
@@ -83,19 +83,21 @@
     return state.phase === "break" ? state.breakSeconds : state.durationSeconds;
   }
 
+  function currentRemainingSeconds(state, now) {
+    if (!state.running || state.deadline === null) return state.remainingSeconds;
+    return Math.max(0, Math.ceil((state.deadline - now) / 1000));
+  }
+
   function candidateIndex(state) {
-    if (state.selectedNextIndex !== null && state.selectedNextIndex >= 0 &&
-      state.selectedNextIndex < state.participants.length) {
-      return state.selectedNextIndex;
-    }
     return (state.currentIndex + 1 + state.skipOffset) % state.participants.length;
   }
 
-  function selectNextDriver(state, index) {
+  function selectCurrentDriver(state, index) {
     if (state.running || !Number.isInteger(index) || index < 0 || index >= state.participants.length) {
       return false;
     }
-    state.selectedNextIndex = index;
+    state.currentIndex = index;
+    state.currentDriverSelected = true;
     state.skipOffset = 0;
     return true;
   }
@@ -107,6 +109,7 @@
     } else {
       state.drivenSeconds += state.durationSeconds;
       state.popup = state.drivenSeconds >= state.breakIntervalSeconds ? "break" : "next";
+      state.currentDriverSelected = false;
     }
     state.remainingSeconds = 0;
     state.skipOffset = 0;
@@ -116,7 +119,7 @@
     if (state.participants.length > 0) {
       state.currentIndex = candidateIndex(state);
     }
-    state.selectedNextIndex = null;
+    state.currentDriverSelected = false;
     state.skipOffset = 0;
     state.paused = false;
     state.turnNumber += 1;
@@ -134,7 +137,7 @@
   function skipCurrentDriver(state) {
     state.drivenSeconds += state.durationSeconds - state.remainingSeconds;
     state.currentIndex = candidateIndex(state);
-    state.selectedNextIndex = null;
+    state.currentDriverSelected = false;
     state.skipOffset = 0;
     state.turnNumber += 1;
     state.remainingSeconds = state.durationSeconds;
@@ -143,8 +146,9 @@
   function cycleSkipOffset(state) {
     if (state.participants.length < 2) return false;
     if (state.popup === "next" || state.popup === "afterBreak") {
-      if (state.selectedNextIndex !== null) {
-        state.selectedNextIndex = (candidateIndex(state) + 1) % state.participants.length;
+      if (state.currentDriverSelected) {
+        state.currentDriverSelected = false;
+        state.skipOffset = 0;
       } else {
         state.skipOffset = (state.skipOffset + 1) % state.participants.length;
       }
@@ -157,8 +161,8 @@
     if (state.popup !== "break" || state.participants.length < 1) return false;
     state.phase = "driving";
     state.drivenSeconds = 0;
-    state.currentIndex = candidateIndex(state);
-    state.selectedNextIndex = null;
+    if (!state.currentDriverSelected) state.currentIndex = candidateIndex(state);
+    state.currentDriverSelected = false;
     state.skipOffset = 0;
     state.turnNumber += 1;
     state.remainingSeconds = state.durationSeconds;
@@ -168,15 +172,18 @@
   // Applies the primary popup button; returns true when the timer should start.
   function acceptPopup(state) {
     if (state.participants.length < 1) return false;
-    if (state.popup === "resume") return true;
+    if (state.popup === "resume") {
+      state.currentDriverSelected = false;
+      return true;
+    }
     if (state.popup === "break") {
       state.phase = "break";
       state.drivenSeconds = 0;
       state.remainingSeconds = state.breakSeconds;
     } else {
       state.phase = "driving";
-      state.currentIndex = candidateIndex(state);
-      state.selectedNextIndex = null;
+      if (!state.currentDriverSelected) state.currentIndex = candidateIndex(state);
+      state.currentDriverSelected = false;
       state.skipOffset = 0;
       state.turnNumber += 1;
       state.remainingSeconds = state.durationSeconds;
@@ -189,7 +196,7 @@
     state.popup = null;
     state.paused = false;
     state.skipOffset = 0;
-    state.selectedNextIndex = null;
+    state.currentDriverSelected = false;
     state.phase = "driving";
     state.drivenSeconds = 0;
     state.deadline = null;
@@ -200,8 +207,7 @@
 
   function leaveRotation(state, index) {
     const [name] = state.participants.splice(index, 1);
-    if (state.selectedNextIndex === index) state.selectedNextIndex = null;
-    else if (state.selectedNextIndex !== null && index < state.selectedNextIndex) state.selectedNextIndex -= 1;
+    if (state.currentDriverSelected && index === state.currentIndex) state.currentDriverSelected = false;
     if (index < state.currentIndex) state.currentIndex -= 1;
     if (state.currentIndex >= state.participants.length) state.currentIndex = 0;
     return name;
@@ -247,15 +253,15 @@
     }
     // Reset currentIndex to 0 after shuffling
     state.currentIndex = 0;
-    state.selectedNextIndex = null;
+    state.currentDriverSelected = false;
     state.skipOffset = 0;
   }
 
   const api = {
     DEFAULT_DURATION, DEFAULT_BREAK_DURATION, DEFAULT_BREAK_INTERVAL, MAX_DURATION, MAX_BREAK_INTERVAL,
     readMinutes, readNames, parseSavedSession, serializeSession, formatTime, createState,
-    phaseSeconds, candidateIndex, expireTurn, advanceTurn, skipTurn, skipCurrentDriver,
-    selectNextDriver, cycleSkipOffset, skipBreak, acceptPopup, resetState, leaveRotation, sitOut, rejoinRotation,
+    phaseSeconds, currentRemainingSeconds, candidateIndex, expireTurn, advanceTurn, skipTurn, skipCurrentDriver,
+    selectCurrentDriver, cycleSkipOffset, skipBreak, acceptPopup, resetState, leaveRotation, sitOut, rejoinRotation,
     deletePotential, applyDuration, applyBreakInterval, applyBreakDuration, randomizeParticipants
   };
 

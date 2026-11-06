@@ -34,9 +34,17 @@ unsigned and use the default Electron icon.
 - **Randomize order:** shuffles the driver rotation list. The next driver will be
   the first person in the randomized list. This button is only active when there
   are two or more participants.
-- **Next:** choose a participant as the next driver without changing the rotation
-  order. The choice is available while the timer is stopped or paused, and the
-  next-driver controls are disabled while a timer is running.
+- **Select:** choose a participant as the current driver without changing the
+  rotation order. This is available while the timer is stopped or paused; driver
+  selection is disabled while a timer is running.
+
+On a turn-expiry, break, break-end, or resume popup, select **Choose driver** to
+access the rotation list. Select a participant to set them as the current driver,
+then select **Continue to popup** to return to the same prompt. The popup's
+usual start, skip, and break actions remain available. Starting from a turn or
+break-end popup starts the selected driver; beginning a break retains that
+driver for after the break. If the rotation is empty, rejoin or add a
+participant before continuing to the popup.
 
 Both lists are saved locally.
 

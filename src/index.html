@@ -58,6 +58,9 @@
           <span>NEXT UP</span>
           <strong id="next-driver">Add participants below</strong>
         </div>
+        <p class="helper-text" id="choose-driver-hint" role="status" hidden>
+          Select a driver from the team list to set the current driver, then select Continue to popup.
+        </p>
 
         <div class="controls">
           <button class="button button-primary" id="start-pause" type="button">
@@ -148,6 +151,9 @@
             </button>
             <button class="button button-secondary expiry-button" id="skip-driver" type="button" hidden>
               Skip driver
+            </button>
+            <button class="button button-secondary expiry-button" id="choose-driver" type="button">
+              Choose driver
             </button>
             <button class="button button-quiet expiry-button" id="cancel-popup" type="button" hidden>
               Keep paused

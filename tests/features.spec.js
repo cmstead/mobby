@@ -23,47 +23,295 @@ test.describe("Feature: Pop up when time is up", () => {
     await expect(page.locator("#session-status")).toHaveText("IN PROGRESS");
     await expect(page.locator("#turn-caption")).toHaveText("Turn 2");
   });
+
 });
 
 test.describe("Feature: select driver", () => {
-  test("selects a next driver without reordering and prevents selection while running", async ({ page }) => {
+  test("selecting from a stopped timer changes the current driver and preserves order", async ({ page }) => {
+    await openApp(page, { names: ["Sam", "Alex", "Jo"] });
+    const orderBefore = await page.locator("#participant-list .participant-name").evaluateAll((nodes) =>
+      nodes.map((node) => node.childNodes[0].textContent.trim())
+    );
+    await page.getByRole("button", { name: "Select Jo as current driver" }).click();
+    await expect(page.locator("#current-driver")).toHaveText("Jo");
+    await expect(page.locator("#next-driver")).toHaveText("Sam");
+    await page.locator("#start-pause").click();
+    await expect(page.locator("#current-driver")).toHaveText("Jo");
+    expect(await page.locator("#participant-list .participant-name").evaluateAll((nodes) =>
+      nodes.map((node) => node.childNodes[0].textContent.trim())
+    )).toEqual(orderBefore);
+  });
+
+  test("selects the current driver without reordering and prevents selection while running", async ({ page }) => {
     await openApp(page, { names: ["Sam", "Alex", "Jo"], breakInterval: 50 });
     const getOrder = () => page.locator("#participant-list .participant-name").evaluateAll((nodes) =>
       nodes.map((node) => node.childNodes[0].textContent.trim())
     );
     const originalOrder = await getOrder();
 
-    await page.getByRole("button", { name: "Set Jo as next driver" }).click();
-    await expect(page.locator("#next-driver")).toHaveText("Jo");
-    await expect(page.getByRole("button", { name: "Set Jo as next driver" })).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "Select Jo as current driver" }).click();
+    await expect(page.locator("#current-driver")).toHaveText("Jo");
+    await expect(page.locator("#next-driver")).toHaveText("Sam");
+    await expect(page.getByRole("button", { name: "Select Jo as current driver" })).toHaveAttribute("aria-pressed", "true");
     expect(await getOrder()).toEqual(originalOrder);
 
     await page.locator("#start-pause").click();
-    await expect(page.locator("#current-driver")).toHaveText("Sam");
-    const selectAlex = page.getByRole("button", { name: "Set Alex as next driver" });
+    await expect(page.locator("#current-driver")).toHaveText("Jo");
+    const selectAlex = page.getByRole("button", { name: "Select Alex as current driver" });
     await expect(selectAlex).toBeDisabled();
     await selectAlex.evaluate((button) => button.click());
-    await expect(page.locator("#next-driver")).toHaveText("Jo");
+    await expect(page.locator("#current-driver")).toHaveText("Jo");
     await advance(page, 1);
     await expect(popup(page)).toBeVisible();
-    await expect(page.locator("#start-next-turn")).toHaveText("Start Jo's turn");
+    await expect(page.locator("#start-next-turn")).toHaveText("Start Sam's turn");
     await page.locator("#start-next-turn").click();
 
-    await expect(page.locator("#current-driver")).toHaveText("Jo");
+    await expect(page.locator("#current-driver")).toHaveText("Sam");
     expect(await getOrder()).toEqual(originalOrder);
   });
 
-  test("a paused timer allows changing the next driver", async ({ page }) => {
+  test("a paused timer allows changing the current driver without resetting the turn", async ({ page }) => {
     await openApp(page, { names: ["Sam", "Alex", "Jo"], breakInterval: 50 });
     await page.locator("#start-pause").click();
     await page.locator("#start-pause").click();
-    await page.getByRole("button", { name: "Set Jo as next driver" }).click();
-    await expect(page.locator("#current-driver")).toHaveText("Sam");
-    await expect(page.locator("#next-driver")).toHaveText("Jo");
+    await page.getByRole("button", { name: "Select Jo as current driver" }).click();
+    await expect(page.locator("#current-driver")).toHaveText("Jo");
+    await expect(page.locator("#next-driver")).toHaveText("Sam");
     await page.locator("#start-pause").click();
     await page.locator("#start-next-turn").click();
     await advance(page, 1);
+    await expect(page.locator("#start-next-turn")).toHaveText("Start Sam's turn");
+  });
+
+  for (const stage of ["turn", "break prompt", "break end"]) {
+    test(`chooses from the roster at ${stage} and returns to the pending popup`, async ({ page }) => {
+      await openApp(page, { names: ["Sam", "Alex", "Jo"], breakInterval: stage === "turn" ? 50 : 1 });
+      await page.locator("#start-pause").click();
+      await advance(page, 1);
+      if (stage === "break end") {
+        await page.locator("#start-next-turn").click();
+        await advance(page, 1);
+      }
+
+      await expect(title(page)).toHaveText(
+        stage === "turn" ? "Time's up!" : stage === "break prompt" ? "Time for a break!" : "Break's over!"
+      );
+      await expect(page.locator("#session-status")).toHaveText("WAITING");
+      await page.getByRole("button", { name: "Choose driver" }).click();
+      await expect(popup(page)).not.toBeVisible();
+      await expect(page.getByRole("button", { name: "Select Alex as current driver" })).toBeFocused();
+      await expect(page.locator("#choose-driver-hint")).toBeVisible();
+      const jo = page.getByRole("button", { name: "Select Jo as current driver" });
+      await jo.focus();
+      await page.keyboard.press("Enter");
+      await expect(jo).toBeFocused();
+      await expect(jo).toHaveAttribute("aria-pressed", "true");
+      if (stage !== "break end") await expect(page.locator("#current-driver")).toHaveText("Jo");
+      await expect(page.locator("#next-driver")).toHaveText("Jo");
+      await expect(page.locator("#participant-list .participant").filter({ has: jo })).toContainText("UP NEXT");
+      const order = await page.locator("#participant-list .participant-name").evaluateAll((nodes) =>
+        nodes.map((node) => node.childNodes[0].textContent.trim())
+      );
+      expect(order).toEqual(["Sam", "Alex", "Jo"]);
+
+      await page.getByRole("button", { name: "Continue to popup" }).click();
+      await expect(popup(page)).toBeVisible();
+      if (stage === "break prompt") {
+        await expect(page.locator("#start-next-turn")).toHaveText("Begin break");
+        await page.locator("#start-next-turn").click();
+        await advance(page, 1);
+      }
+      await expect(page.locator("#start-next-turn")).toHaveText("Start Jo's turn");
+      await expect(page.locator("#expiry-description")).toContainText("Jo");
+      await page.locator("#start-next-turn").click();
+      await expect(page.locator("#current-driver")).toHaveText("Jo");
+      await expect(page.locator("#next-driver")).toHaveText("Sam");
+    });
+  }
+
+  test("choosing from the resume popup preserves the paused turn", async ({ page }) => {
+    await openApp(page, { names: ["Sam", "Alex", "Jo"], breakInterval: 50 });
+    await page.locator("#start-pause").click();
+    await page.locator("#start-pause").click();
+    await page.locator("#start-pause").click();
+    await page.getByRole("button", { name: "Choose driver" }).focus();
+    await page.keyboard.press("Enter");
+    const jo = page.getByRole("button", { name: "Select Jo as current driver" });
+    await jo.click();
+    await expect(jo).toBeFocused();
+    await expect(page.locator("#current-driver")).toHaveText("Jo");
+    await expect(page.locator("#next-driver")).toHaveText("Sam");
+    await page.getByRole("button", { name: "Continue to popup" }).click();
+    await expect(title(page)).toHaveText("Resume session?");
+    await expect(page.locator("#session-status")).toHaveText("PAUSED");
+    await expect(page.locator("#start-next-turn")).toHaveText("Resume Jo");
+    await expect(page.locator("#next-driver")).toHaveText("Sam");
+    await expect(page.locator("#participant-list .participant").filter({ has: jo })).not.toContainText("UP NEXT");
+    await page.locator("#start-next-turn").click();
+    await expect(page.locator("#current-driver")).toHaveText("Jo");
+    await advance(page, 1);
+    await expect(page.locator("#start-next-turn")).toHaveText("Start Sam's turn");
+  });
+
+  test("selection from the break prompt is honored when skipping the break", async ({ page }) => {
+    await openApp(page, { names: ["Sam", "Alex", "Jo"], breakInterval: 1 });
+    await page.locator("#start-pause").click();
+    await advance(page, 1);
+    await page.getByRole("button", { name: "Choose driver" }).click();
+    await page.getByRole("button", { name: "Select Jo as current driver" }).click();
+    await expect(page.locator("#current-driver")).toHaveText("Jo");
+    await page.getByRole("button", { name: "Continue to popup" }).click();
+    await page.locator("#skip-break").click();
+    await expect(page.locator("#current-driver")).toHaveText("Jo");
+    await expect(page.locator("#session-status")).toHaveText("IN PROGRESS");
+    await expect(page.getByRole("button", { name: "Select Alex as current driver" })).toBeDisabled();
+  });
+
+  test("a paused break allows selection without changing the break or roster", async ({ page }) => {
+    await openApp(page, { names: ["Sam", "Alex", "Jo"], breakInterval: 1 });
+    await page.locator("#start-pause").click();
+    await advance(page, 1);
+    await page.locator("#start-next-turn").click();
+    await expect(page.getByRole("button", { name: "Select Jo as current driver" })).toBeDisabled();
+    await page.locator("#start-pause").click();
+    await page.getByRole("button", { name: "Select Jo as current driver" }).click();
+    await expect(page.locator("#current-driver")).toHaveText("Break time");
+    await expect(page.locator("#next-driver")).toHaveText("Jo");
+    await page.locator("#start-pause").click();
+    await advance(page, 1);
     await expect(page.locator("#start-next-turn")).toHaveText("Start Jo's turn");
+    await expect(page.locator("#expiry-description")).toContainText("Jo");
+    await page.locator("#start-next-turn").click();
+    await expect(page.locator("#current-driver")).toHaveText("Jo");
+  });
+
+  test("skip driver cycles from the selected driver after returning to the popup", async ({ page }) => {
+    await openApp(page, { names: ["Sam", "Alex", "Jo"], breakInterval: 50 });
+    await page.locator("#start-pause").click();
+    await advance(page, 1);
+    await page.getByRole("button", { name: "Choose driver" }).click();
+    await page.getByRole("button", { name: "Select Jo as current driver" }).click();
+    await expect(page.locator("#current-driver")).toHaveText("Jo");
+    await page.getByRole("button", { name: "Continue to popup" }).click();
+    await page.locator("#skip-driver").click();
+    await expect(page.locator("#start-next-turn")).toHaveText("Start Sam's turn");
+    await expect(page.locator("#next-driver")).toHaveText("Sam");
+    await page.locator("#start-next-turn").click();
+    await expect(page.locator("#current-driver")).toHaveText("Sam");
+    await expect(page.locator("#next-driver")).toHaveText("Alex");
+  });
+
+  for (const recovery of ["rejoin", "add"]) {
+    test(`chooser recovers after the roster is emptied and a participant is restored by ${recovery}`, async ({ page }) => {
+      const restored = recovery === "rejoin" ? "Alex" : "Jo";
+      await openApp(page, { names: ["Sam", "Alex"], breakInterval: 50 });
+      await page.locator("#start-pause").click();
+      await advance(page, 1);
+      await expect(title(page)).toHaveText("Time's up!");
+      await page.getByRole("button", { name: "Choose driver" }).click();
+      await page.getByRole("button", { name: "Remove Sam from rotation" }).click();
+      await page.getByRole("button", { name: "Remove Alex from rotation" }).click();
+
+      await expect(popup(page)).not.toBeVisible();
+      await expect(page.locator("#session-status")).toHaveText("WAITING");
+      await expect(page.locator("#next-driver")).toHaveText("Add participants below");
+      await expect(page.locator("#choose-driver-hint")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Continue to popup" })).toBeDisabled();
+      await expect(page.getByRole("button", { name: "Add Alex to rotation" })).toBeVisible();
+
+      if (recovery === "rejoin") {
+        await page.getByRole("button", { name: "Add Alex to rotation" }).click();
+      } else {
+        await page.getByLabel("Participant name").fill(restored);
+        await page.getByRole("button", { name: "Add participant" }).click();
+      }
+      await expect(page.getByRole("button", { name: "Continue to popup" })).toBeEnabled();
+      await page.getByRole("button", { name: `Select ${restored} as current driver` }).click();
+      await expect(page.locator("#current-driver")).toHaveText(restored);
+      await expect(page.locator("#next-driver")).toHaveText(restored);
+      await page.getByRole("button", { name: "Continue to popup" }).click();
+      await expect(title(page)).toHaveText("Time's up!");
+      await expect(page.locator("#expiry-description")).toHaveText(`Sam's turn is over. Pass the keyboard to ${restored}.`);
+      await expect(page.locator("#start-next-turn")).toHaveText(`Start ${restored}'s turn`);
+      await page.locator("#start-next-turn").click();
+      await expect(popup(page)).not.toBeVisible();
+      await expect(page.locator("#current-driver")).toHaveText(restored);
+      await expect(page.locator("#next-driver")).toHaveText(restored);
+      await expect(page.locator("#session-status")).toHaveText("IN PROGRESS");
+      await expect(page.getByRole("button", { name: `Select ${restored} as current driver` })).toBeDisabled();
+      await advance(page, 1);
+      await expect(page.locator("#expiry-description")).toHaveText(`${restored}'s turn is over. Pass the keyboard to ${restored}.`);
+    });
+  }
+
+  test("a break prompt retains the finished driver after the roster is replaced", async ({ page }) => {
+    await openApp(page, { names: ["Sam", "Alex"], breakInterval: 1 });
+    await page.locator("#start-pause").click();
+    await advance(page, 1);
+    await expect(title(page)).toHaveText("Time for a break!");
+    await page.getByRole("button", { name: "Choose driver" }).click();
+    await page.getByRole("button", { name: "Remove Sam from rotation" }).click();
+    await page.getByRole("button", { name: "Remove Alex from rotation" }).click();
+    await page.getByRole("button", { name: "Add Alex to rotation" }).click();
+    await page.getByRole("button", { name: "Continue to popup" }).click();
+    await expect(page.locator("#expiry-description")).toHaveText("Sam has finished driving. Step away from the keyboard and rest.");
+    await page.locator("#start-next-turn").click();
+    await advance(page, 1);
+    await expect(title(page)).toHaveText("Break's over!");
+    await expect(page.locator("#start-next-turn")).toHaveText("Start Alex's turn");
+    await page.locator("#start-next-turn").click();
+    await expect(page.locator("#current-driver")).toHaveText("Alex");
+  });
+
+  for (const offset of [-1, 0, 1]) {
+    test(`pausing ${offset}ms relative to a turn deadline handles it once`, async ({ page }) => {
+      await openApp(page, { names: ["Sam", "Alex", "Jo"], breakInterval: 50 });
+      await page.getByRole("button", { name: "Select Jo as current driver" }).click();
+      await page.clock.pauseAt(new Date("2026-01-01T10:00:00"));
+      await page.locator("#start-pause").click();
+      const now = await page.evaluate(() => Date.now());
+      await page.clock.setSystemTime(new Date(now + 60000 + offset));
+      await page.locator("#start-pause").click();
+      if (offset < 0) {
+        await expect(popup(page)).not.toBeVisible();
+        await page.locator("#start-pause").click();
+        await expect(title(page)).toHaveText("Resume session?");
+        await expect(page.locator("#start-next-turn")).toHaveText("Resume Jo");
+      } else {
+        await expect(title(page)).toHaveText("Time's up!");
+        await expect(page.locator("#start-next-turn")).toHaveText("Start Sam's turn");
+        await page.locator("#start-next-turn").click();
+        await expect(page.locator("#current-driver")).toHaveText("Sam");
+        await expect(page.locator("#turn-caption")).toHaveText("Turn 2");
+      }
+    });
+  }
+
+  test("pausing after a break deadline shows the break-end popup", async ({ page }) => {
+    await openApp(page, { names: ["Sam", "Alex", "Jo"], breakInterval: 1 });
+    await page.getByRole("button", { name: "Select Jo as current driver" }).click();
+    await page.locator("#start-pause").click();
+    await advance(page, 1);
+    await page.clock.pauseAt(new Date("2026-01-01T10:00:00"));
+    await page.locator("#start-next-turn").click();
+    const now = await page.evaluate(() => Date.now());
+    await page.clock.setSystemTime(new Date(now + 60001));
+    await page.locator("#start-pause").click();
+    await expect(title(page)).toHaveText("Break's over!");
+    await expect(page.locator("#start-next-turn")).toHaveText("Start Sam's turn");
+    await page.locator("#start-next-turn").click();
+    await expect(page.locator("#current-driver")).toHaveText("Sam");
+  });
+
+  test("pausing at a turn deadline still triggers a due break", async ({ page }) => {
+    await openApp(page, { breakInterval: 1 });
+    await page.clock.pauseAt(new Date("2026-01-01T10:00:00"));
+    await page.locator("#start-pause").click();
+    const now = await page.evaluate(() => Date.now());
+    await page.clock.setSystemTime(new Date(now + 60000));
+    await page.locator("#start-pause").click();
+    await expect(title(page)).toHaveText("Time for a break!");
+    await expect(page.locator("#skip-break")).toBeVisible();
   });
 });
 
@@ -221,8 +469,9 @@ test.describe("Feature: Randomize drivers", () => {
       const items = await page.locator("#participant-list li").count();
       const order = [];
       for (let i = 0; i < items; i++) {
-        const name = await page.locator(`#participant-list li:nth-of-type(${i + 1}) span.participant-name`).first().textContent();
-        order.push(name.replace(/DRIVING/, '').trim());
+        const name = await page.locator(`#participant-list li:nth-of-type(${i + 1}) span.participant-name`).first()
+          .evaluate((node) => node.childNodes[0].textContent.trim());
+        order.push(name);
       }
       return order;
     };
@@ -257,9 +506,10 @@ test.describe("Feature: Randomize drivers", () => {
     await page.locator("#randomize-drivers").click();
     
     // After randomize, get the first driver's name from the list
-    const firstDriver = await page.locator("#participant-list li:first-child span.participant-name").first().textContent();
+    const firstDriver = await page.locator("#participant-list li:first-child span.participant-name").first()
+      .evaluate((node) => node.childNodes[0].textContent.trim());
     
     await page.locator("#start-pause").click(); // Resume to check
-    await expect(page.locator("#current-driver")).toHaveText(firstDriver.replace(/DRIVING/, '').trim());
+    await expect(page.locator("#current-driver")).toHaveText(firstDriver);
   });
 });
