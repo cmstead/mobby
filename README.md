@@ -31,6 +31,9 @@ unsigned and use the default Electron icon.
   without deleting them. If they were driving, the next mobber takes over.
 - **Rejoin:** moves a potential mobber back to the end of the rotation.
 - **×:** deletes a mobber entirely, from either list.
+- **Randomize order:** shuffles the driver rotation list. The next driver will be
+  the first person in the randomized list. This button is only active when there
+  are two or more participants.
 
 Both lists are saved locally.
 

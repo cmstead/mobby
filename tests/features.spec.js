@@ -159,3 +159,65 @@ test.describe("Feature: Remove mobber from rotation", () => {
     await expect(page.locator("body")).not.toContainText("Sam");
   });
 });
+
+test.describe("Feature: Randomize drivers", () => {
+  test("randomize button is disabled with fewer than two participants", async ({ page }) => {
+    await openApp(page, { names: ["Sam"] });
+    await expect(page.locator("#randomize-drivers")).toBeDisabled();
+  });
+
+  test("randomize button is enabled with two or more participants", async ({ page }) => {
+    await openApp(page, { names: ["Sam", "Alex"] });
+    await expect(page.locator("#randomize-drivers")).toBeEnabled();
+  });
+
+  test("randomize changes the driver order and updates the UI", async ({ page }) => {
+    await openApp(page, { names: ["Sam", "Alex", "Jo"] });
+    
+    // Get initial order by reading participant list
+    const getOrder = async () => {
+      const items = await page.locator("#participant-list li").count();
+      const order = [];
+      for (let i = 0; i < items; i++) {
+        const name = await page.locator(`#participant-list li:nth-of-type(${i + 1}) span.participant-name`).first().textContent();
+        order.push(name.replace(/DRIVING/, '').trim());
+      }
+      return order;
+    };
+    
+    const originalOrder = await getOrder();
+    
+    // Randomize the order (retry until we get a different order)
+    let newOrder = originalOrder;
+    for (let i = 0; i < 10; i++) {
+      await page.locator("#randomize-drivers").click();
+      newOrder = await getOrder();
+      if (newOrder.join(",") !== originalOrder.join(",")) {
+        break;
+      }
+    }
+    
+    // Verify the order changed (or we tried 10 times - test may be flaky without change)
+    expect(newOrder.join(",")).not.toBe(originalOrder.join(","));
+    
+    // Verify all original names are still present
+    for (const name of originalOrder) {
+      await expect(page.locator("#participant-list")).toContainText(name);
+    }
+  });
+
+  test("current driver resets to first after randomize", async ({ page }) => {
+    await openApp(page, { names: ["Sam", "Alex", "Jo"] });
+    await page.locator("#start-pause").click();
+    await expect(page.locator("#current-driver")).toHaveText("Sam");
+    
+    await page.locator("#start-pause").click(); // Pause to allow randomize
+    await page.locator("#randomize-drivers").click();
+    
+    // After randomize, get the first driver's name from the list
+    const firstDriver = await page.locator("#participant-list li:first-child span.participant-name").first().textContent();
+    
+    await page.locator("#start-pause").click(); // Resume to check
+    await expect(page.locator("#current-driver")).toHaveText(firstDriver.replace(/DRIVING/, '').trim());
+  });
+});

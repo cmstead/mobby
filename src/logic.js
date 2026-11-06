@@ -209,12 +209,23 @@
     if (state.phase === "break") state.remainingSeconds = seconds;
   }
 
+  function randomizeParticipants(state) {
+    if (state.participants.length < 2) return;
+    // Fisher-Yates shuffle algorithm
+    for (let i = state.participants.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [state.participants[i], state.participants[j]] = [state.participants[j], state.participants[i]];
+    }
+    // Reset currentIndex to 0 after shuffling
+    state.currentIndex = 0;
+  }
+
   const api = {
     DEFAULT_DURATION, DEFAULT_BREAK_DURATION, DEFAULT_BREAK_INTERVAL, MAX_DURATION, MAX_BREAK_INTERVAL,
     readMinutes, readNames, parseSavedSession, serializeSession, formatTime, createState,
     phaseSeconds, candidateIndex, expireTurn, advanceTurn, skipTurn, skipCurrentDriver,
     cycleSkipOffset, skipBreak, acceptPopup, resetState, leaveRotation, sitOut, rejoinRotation,
-    deletePotential, applyDuration, applyBreakInterval, applyBreakDuration
+    deletePotential, applyDuration, applyBreakInterval, applyBreakDuration, randomizeParticipants
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;

@@ -269,3 +269,55 @@ describe("Feature: Remove mobber from rotation", () => {
     assert.equal(s.currentIndex, 0);
   });
 });
+
+describe("Feature: Randomize drivers", () => {
+  test("randomizeParticipants shuffles the list", () => {
+    const s = make();
+    const original = [...s.participants];
+    logic.randomizeParticipants(s);
+    // The shuffled list should be a permutation of the original
+    const sorted = s.participants.slice().sort();
+    const originalSorted = original.slice().sort();
+    assert.deepEqual(sorted, originalSorted);
+  });
+
+  test("randomizeParticipants resets currentIndex to 0", () => {
+    const s = make({ currentIndex: 2 });
+    logic.randomizeParticipants(s);
+    assert.equal(s.currentIndex, 0);
+  });
+
+  test("randomizeParticipants does nothing with fewer than 2 participants", () => {
+    const s = make({ participants: ["Sam"] });
+    logic.randomizeParticipants(s);
+    assert.deepEqual(s.participants, ["Sam"]);
+  });
+
+  test("randomizeParticipants does nothing with empty participants", () => {
+    const s = make({ participants: [] });
+    logic.randomizeParticipants(s);
+    assert.deepEqual(s.participants, []);
+  });
+
+  test("randomizeParticipants produces different orders (probabilistic)", () => {
+    // Create a state with many participants to increase likelihood of shuffle
+    const participants = ["A", "B", "C", "D", "E", "F", "G", "H"];
+    let differentOrderSeen = false;
+    
+    for (let i = 0; i < 10; i++) {
+      const s = logic.createState({
+        participants: [...participants],
+        potential: [],
+        duration: 5,
+        breakInterval: 10,
+        breakDuration: 2
+      });
+      logic.randomizeParticipants(s);
+      if (s.participants.join(",") !== participants.join(",")) {
+        differentOrderSeen = true;
+        break;
+      }
+    }
+    assert.equal(differentOrderSeen, true);
+  });
+});

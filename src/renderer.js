@@ -18,6 +18,7 @@ const elements = {
   addPersonForm: document.querySelector("#add-person-form"),
   personName: document.querySelector("#person-name"),
   participantList: document.querySelector("#participant-list"),
+  randomizeDrivers: document.querySelector("#randomize-drivers"),
   teamCount: document.querySelector("#team-count"),
   teamHelper: document.querySelector("#team-helper"),
   potentialSection: document.querySelector("#potential-section"),
@@ -165,6 +166,7 @@ function updateParticipants() {
 
 function updateControls() {
   const hasParticipants = state.participants.length > 0;
+  const canRandomize = state.participants.length > 1;
   elements.startPause.disabled = !hasParticipants;
   elements.startPause.textContent = state.running ? "Pause session" : "Start session";
   elements.status.textContent = state.running
@@ -174,6 +176,8 @@ function updateControls() {
   elements.duration.disabled = state.running;
   elements.breakInterval.disabled = state.running;
   elements.breakDuration.disabled = state.running;
+  elements.randomizeDrivers.disabled = !canRandomize;
+  elements.randomizeDrivers.setAttribute("aria-disabled", String(!canRandomize));
 }
 
 function render() {
@@ -312,6 +316,12 @@ function deletePotential(index) {
   refreshAfterRosterChange();
 }
 
+function randomizeDrivers() {
+  logic.randomizeParticipants(state);
+  persistSession();
+  render();
+}
+
 elements.startPause.addEventListener("click", () => {
   if (state.running) {
     pauseTimer();
@@ -347,6 +357,10 @@ elements.skipDriver.addEventListener("click", () => {
 
 elements.skipBreak.addEventListener("click", () => {
   if (logic.skipBreak(state)) startTimer();
+});
+
+elements.randomizeDrivers.addEventListener("click", () => {
+  randomizeDrivers();
 });
 
 elements.cancelPopup.addEventListener("click", () => {
