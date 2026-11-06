@@ -10,6 +10,7 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
+    "test": "playwright test",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux"
@@ -35,21 +36,31 @@
       "target": [
         {
           "target": "deb",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "AppImage",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "tar.gz",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "category": "Development"
     }
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "electron": "^45.2.3",
     "electron-builder": "^26.18.0"
   }
