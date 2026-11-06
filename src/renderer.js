@@ -1,8 +1,4 @@
-const DEFAULT_DURATION = 5;
-const DEFAULT_BREAK_DURATION = 10;
-const DEFAULT_BREAK_INTERVAL = 50;
-const MAX_DURATION = 60;
-const MAX_BREAK_INTERVAL = 240;
+const logic = window.MobLogic;
 const STORAGE_KEY = "mob-timer-session";
 
 const elements = {
@@ -37,87 +33,35 @@ const elements = {
   cancelPopup: document.querySelector("#cancel-popup")
 };
 
-function readMinutes(value, fallback, max) {
-  return Number.isInteger(value) && value >= 1 && value <= max ? value : fallback;
-}
-
-function readNames(value) {
-  return Array.isArray(value)
-    ? value.filter((name) => typeof name === "string" && name.trim())
-    : [];
-}
-
 function loadSavedSession() {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-
-    return {
-      participants: readNames(saved.participants),
-      potential: readNames(saved.potential),
-      duration: readMinutes(saved.duration, DEFAULT_DURATION, MAX_DURATION),
-      breakInterval: readMinutes(saved.breakInterval, DEFAULT_BREAK_INTERVAL, MAX_BREAK_INTERVAL),
-      breakDuration: readMinutes(saved.breakDuration, DEFAULT_BREAK_DURATION, MAX_DURATION)
-    };
+    return logic.parseSavedSession(localStorage.getItem(STORAGE_KEY));
   } catch (error) {
     console.error("Could not load the saved mob timer session.", error);
-    return {
-      participants: [],
-      potential: [],
-      duration: DEFAULT_DURATION,
-      breakInterval: DEFAULT_BREAK_INTERVAL,
-      breakDuration: DEFAULT_BREAK_DURATION
-    };
+    return logic.parseSavedSession(null);
   }
 }
 
 const savedSession = loadSavedSession();
-const state = {
-  participants: savedSession.participants,
-  potential: savedSession.potential,
-  durationSeconds: savedSession.duration * 60,
-  breakIntervalSeconds: savedSession.breakInterval * 60,
-  breakSeconds: savedSession.breakDuration * 60,
-  remainingSeconds: savedSession.duration * 60,
-  phase: "driving",
-  drivenSeconds: 0,
-  popup: null,
-  skipOffset: 0,
-  paused: false,
-  currentIndex: 0,
-  turnNumber: 1,
-  running: false,
-  deadline: null,
-  tickHandle: null
-};
+const state = logic.createState(savedSession);
 
 elements.duration.value = String(savedSession.duration);
 elements.breakInterval.value = String(savedSession.breakInterval);
 elements.breakDuration.value = String(savedSession.breakDuration);
 
 function phaseSeconds() {
-  return state.phase === "break" ? state.breakSeconds : state.durationSeconds;
+  return logic.phaseSeconds(state);
 }
 
 function persistSession() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      participants: state.participants,
-      potential: state.potential,
-      duration: state.durationSeconds / 60,
-      breakInterval: state.breakIntervalSeconds / 60,
-      breakDuration: state.breakSeconds / 60
-    }));
+    localStorage.setItem(STORAGE_KEY, logic.serializeSession(state));
   } catch (error) {
     console.error("Could not save the mob timer session.", error);
   }
 }
 
-function formatTime(seconds) {
-  const safeSeconds = Math.max(0, Math.ceil(seconds));
-  const minutes = Math.floor(safeSeconds / 60);
-  const remainder = safeSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
-}
+const formatTime = logic.formatTime;
 
 function currentRemainingSeconds() {
   if (!state.running || state.deadline === null) return state.remainingSeconds;
@@ -240,7 +184,7 @@ function render() {
 }
 
 function candidateIndex() {
-  return (state.currentIndex + 1 + state.skipOffset) % state.participants.length;
+  return logic.candidateIndex(state);
 }
 
 function updateExpiryPopup() {
@@ -310,27 +254,9 @@ function pauseTimer() {
   render();
 }
 
-function advanceTurn() {
-  if (state.participants.length > 0) {
-    state.currentIndex = (state.currentIndex + 1) % state.participants.length;
-  }
-  state.paused = false;
-  state.turnNumber += 1;
-  state.remainingSeconds = state.durationSeconds;
-  state.deadline = state.running ? Date.now() + state.remainingSeconds * 1000 : null;
-  render();
-}
-
 function tick() {
   if (currentRemainingSeconds() <= 0) {
-    if (state.phase === "break") {
-      state.popup = "afterBreak";
-    } else {
-      state.drivenSeconds += state.durationSeconds;
-      state.popup = state.drivenSeconds >= state.breakIntervalSeconds ? "break" : "next";
-    }
-    state.remainingSeconds = 0;
-    state.skipOffset = 0;
+    logic.expireTurn(state);
     state.running = false;
     state.deadline = null;
     stopTicking();
@@ -355,25 +281,9 @@ function startTimer() {
 }
 
 function resetTimer() {
-  state.running = false;
-  state.popup = null;
-  state.paused = false;
-  state.skipOffset = 0;
-  state.phase = "driving";
-  state.drivenSeconds = 0;
-  state.deadline = null;
-  state.remainingSeconds = state.durationSeconds;
-  state.currentIndex = 0;
-  state.turnNumber = 1;
+  logic.resetState(state);
   stopTicking();
   render();
-}
-
-function leaveRotation(index) {
-  const [name] = state.participants.splice(index, 1);
-  if (index < state.currentIndex) state.currentIndex -= 1;
-  if (state.currentIndex >= state.participants.length) state.currentIndex = 0;
-  return name;
 }
 
 function refreshAfterRosterChange() {
@@ -383,23 +293,22 @@ function refreshAfterRosterChange() {
 }
 
 function removeParticipant(index) {
-  leaveRotation(index);
+  logic.leaveRotation(state, index);
   refreshAfterRosterChange();
 }
 
 function sitOut(index) {
-  state.potential.push(leaveRotation(index));
+  logic.sitOut(state, index);
   refreshAfterRosterChange();
 }
 
 function rejoinRotation(index) {
-  const [name] = state.potential.splice(index, 1);
-  state.participants.push(name);
+  logic.rejoinRotation(state, index);
   refreshAfterRosterChange();
 }
 
 function deletePotential(index) {
-  state.potential.splice(index, 1);
+  logic.deletePotential(state, index);
   refreshAfterRosterChange();
 }
 
@@ -416,16 +325,13 @@ elements.startPause.addEventListener("click", () => {
 });
 
 elements.skipTurn.addEventListener("click", () => {
-  if (state.participants.length < 2 || state.phase === "break") return;
-  state.drivenSeconds += state.durationSeconds - currentRemainingSeconds();
-  advanceTurn();
+  if (!logic.skipTurn(state, currentRemainingSeconds())) return;
+  state.deadline = state.running ? Date.now() + state.remainingSeconds * 1000 : null;
+  render();
 });
 
 function skipCurrentDriver() {
-  state.drivenSeconds += state.durationSeconds - state.remainingSeconds;
-  state.currentIndex = (state.currentIndex + 1) % state.participants.length;
-  state.turnNumber += 1;
-  state.remainingSeconds = state.durationSeconds;
+  logic.skipCurrentDriver(state);
   startTimer();
 }
 
@@ -434,20 +340,13 @@ elements.skipDriver.addEventListener("click", () => {
 
   if (state.popup === "resume") {
     skipCurrentDriver();
-  } else if (state.popup === "next" || state.popup === "afterBreak") {
-    state.skipOffset = (state.skipOffset + 1) % state.participants.length;
+  } else if (logic.cycleSkipOffset(state)) {
     render();
   }
 });
 
 elements.skipBreak.addEventListener("click", () => {
-  if (state.popup !== "break" || state.participants.length < 1) return;
-  state.phase = "driving";
-  state.drivenSeconds = 0;
-  state.currentIndex = (state.currentIndex + 1) % state.participants.length;
-  state.turnNumber += 1;
-  state.remainingSeconds = state.durationSeconds;
-  startTimer();
+  if (logic.skipBreak(state)) startTimer();
 });
 
 elements.cancelPopup.addEventListener("click", () => {
@@ -464,24 +363,7 @@ elements.expiryPopup.addEventListener("cancel", (event) => {
 });
 
 elements.startNextTurn.addEventListener("click", () => {
-  if (state.participants.length < 1) return;
-
-  if (state.popup === "resume") {
-    startTimer();
-    return;
-  }
-
-  if (state.popup === "break") {
-    state.phase = "break";
-    state.drivenSeconds = 0;
-    state.remainingSeconds = state.breakSeconds;
-  } else {
-    state.phase = "driving";
-    state.currentIndex = candidateIndex();
-    state.turnNumber += 1;
-    state.remainingSeconds = state.durationSeconds;
-  }
-  startTimer();
+  if (logic.acceptPopup(state)) startTimer();
 });
 
 elements.reset.addEventListener("click", resetTimer);
@@ -501,22 +383,16 @@ function bindSetting(input, max, apply) {
   input.dataset.current = input.value;
 }
 
-bindSetting(elements.duration, MAX_DURATION, (seconds) => {
-  state.durationSeconds = seconds;
-  if (state.phase === "driving") {
-    state.remainingSeconds = seconds;
-    state.paused = false;
-    state.turnNumber = 1;
-  }
+bindSetting(elements.duration, logic.MAX_DURATION, (seconds) => {
+  logic.applyDuration(state, seconds);
 });
 
-bindSetting(elements.breakInterval, MAX_BREAK_INTERVAL, (seconds) => {
-  state.breakIntervalSeconds = seconds;
+bindSetting(elements.breakInterval, logic.MAX_BREAK_INTERVAL, (seconds) => {
+  logic.applyBreakInterval(state, seconds);
 });
 
-bindSetting(elements.breakDuration, MAX_DURATION, (seconds) => {
-  state.breakSeconds = seconds;
-  if (state.phase === "break") state.remainingSeconds = seconds;
+bindSetting(elements.breakDuration, logic.MAX_DURATION, (seconds) => {
+  logic.applyBreakDuration(state, seconds);
 });
 
 elements.addPersonForm.addEventListener("submit", (event) => {
