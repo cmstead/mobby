@@ -2,6 +2,11 @@
   "name": "mobby",
   "version": "1.0.0",
   "description": "A simple rotating timer for mob programming sessions.",
+  "author": {
+    "name": "Chris Stead",
+    "email": "cmstead@gmail.com",
+    "url": "https://chrisstead.net"
+  },
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -28,8 +33,18 @@
     },
     "linux": {
       "target": [
-        "AppImage",
-        "tar.gz"
+        {
+          "target": "deb",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "AppImage",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "tar.gz",
+          "arch": ["x64", "arm64"]
+        }
       ],
       "category": "Development"
     }
