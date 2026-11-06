@@ -129,7 +129,7 @@ function updateTimerDisplay() {
   elements.timeLeft.textContent = formatTime(remaining);
   elements.progressFill.style.transform = `scaleX(${phaseSeconds() === 0 ? 0 : remaining / phaseSeconds()})`;
   elements.turnCaption.textContent = state.phase === "break" ? "Break" : `Turn ${state.turnNumber}`;
-  document.title = state.running ? `${formatTime(remaining)} · Mob Timer` : "Mob Timer";
+  document.title = state.running ? `${formatTime(remaining)} · Mobby` : "Mobby";
 }
 
 function updateParticipants() {

@@ -11,7 +11,7 @@
   },
   "build": {
     "appId": "com.mobby.mobtimer",
-    "productName": "Mob Timer",
+    "productName": "Mobby the Mob Timer",
     "directories": {
       "output": "dist"
     },
