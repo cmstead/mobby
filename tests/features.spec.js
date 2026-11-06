@@ -25,6 +25,48 @@ test.describe("Feature: Pop up when time is up", () => {
   });
 });
 
+test.describe("Feature: select driver", () => {
+  test("selects a next driver without reordering and prevents selection while running", async ({ page }) => {
+    await openApp(page, { names: ["Sam", "Alex", "Jo"], breakInterval: 50 });
+    const getOrder = () => page.locator("#participant-list .participant-name").evaluateAll((nodes) =>
+      nodes.map((node) => node.childNodes[0].textContent.trim())
+    );
+    const originalOrder = await getOrder();
+
+    await page.getByRole("button", { name: "Set Jo as next driver" }).click();
+    await expect(page.locator("#next-driver")).toHaveText("Jo");
+    await expect(page.getByRole("button", { name: "Set Jo as next driver" })).toHaveAttribute("aria-pressed", "true");
+    expect(await getOrder()).toEqual(originalOrder);
+
+    await page.locator("#start-pause").click();
+    await expect(page.locator("#current-driver")).toHaveText("Sam");
+    const selectAlex = page.getByRole("button", { name: "Set Alex as next driver" });
+    await expect(selectAlex).toBeDisabled();
+    await selectAlex.evaluate((button) => button.click());
+    await expect(page.locator("#next-driver")).toHaveText("Jo");
+    await advance(page, 1);
+    await expect(popup(page)).toBeVisible();
+    await expect(page.locator("#start-next-turn")).toHaveText("Start Jo's turn");
+    await page.locator("#start-next-turn").click();
+
+    await expect(page.locator("#current-driver")).toHaveText("Jo");
+    expect(await getOrder()).toEqual(originalOrder);
+  });
+
+  test("a paused timer allows changing the next driver", async ({ page }) => {
+    await openApp(page, { names: ["Sam", "Alex", "Jo"], breakInterval: 50 });
+    await page.locator("#start-pause").click();
+    await page.locator("#start-pause").click();
+    await page.getByRole("button", { name: "Set Jo as next driver" }).click();
+    await expect(page.locator("#current-driver")).toHaveText("Sam");
+    await expect(page.locator("#next-driver")).toHaveText("Jo");
+    await page.locator("#start-pause").click();
+    await page.locator("#start-next-turn").click();
+    await advance(page, 1);
+    await expect(page.locator("#start-next-turn")).toHaveText("Start Jo's turn");
+  });
+});
+
 test.describe("Feature: break time", () => {
   test("break settings default to 10 and 50 and are configurable", async ({ page }) => {
     await page.goto(APP_URL);

@@ -85,6 +85,87 @@ describe("Feature: Pop up when time is up", () => {
   });
 });
 
+describe("Feature: select driver", () => {
+  test("selecting a driver sets them as next without changing rotation order or current driver", () => {
+    const s = make({ popup: "next" });
+    const originalOrder = [...s.participants];
+
+    assert.equal(logic.selectNextDriver(s, 2), true);
+    assert.equal(logic.candidateIndex(s), 2);
+    assert.equal(s.currentIndex, 0);
+    assert.deepEqual(s.participants, originalOrder);
+
+    logic.acceptPopup(s);
+    assert.equal(s.currentIndex, 2);
+    assert.deepEqual(s.participants, originalOrder);
+  });
+
+  test("selection is rejected while the timer is running", () => {
+    const s = make();
+    logic.selectNextDriver(s, 2);
+    s.running = true;
+    const before = { ...s, participants: [...s.participants], potential: [...s.potential] };
+
+    assert.equal(logic.selectNextDriver(s, 1), false);
+    assert.deepEqual(s, before);
+    assert.equal(logic.candidateIndex(s), 2);
+  });
+
+  test("selection rejects indexes outside the rotation", () => {
+    const s = make();
+    assert.equal(logic.selectNextDriver(s, -1), false);
+    assert.equal(logic.selectNextDriver(s, 3), false);
+    assert.equal(s.selectedNextIndex, null);
+  });
+
+  test("selection follows a participant when earlier participants leave and clears if they leave", () => {
+    const s = make();
+    logic.selectNextDriver(s, 2);
+    logic.sitOut(s, 0);
+    assert.equal(s.participants[logic.candidateIndex(s)], "Jo");
+    logic.leaveRotation(s, 1);
+    assert.equal(s.selectedNextIndex, null);
+    assert.equal(s.participants[logic.candidateIndex(s)], "Alex");
+  });
+
+  test("selection survives a break and is consumed by the next turn", () => {
+    const s = make({ popup: "break" });
+    logic.selectNextDriver(s, 2);
+    logic.acceptPopup(s);
+    assert.equal(s.phase, "break");
+    assert.equal(logic.candidateIndex(s), 2);
+    logic.expireTurn(s);
+    logic.acceptPopup(s);
+    assert.equal(s.currentIndex, 2);
+    assert.equal(s.selectedNextIndex, null);
+    assert.equal(logic.candidateIndex(s), 0);
+  });
+
+  test("skipping a selected next driver follows the unchanged rotation", () => {
+    const s = make({ popup: "next" });
+    logic.selectNextDriver(s, 2);
+    assert.equal(logic.cycleSkipOffset(s), true);
+    assert.equal(logic.candidateIndex(s), 0);
+    logic.acceptPopup(s);
+    assert.equal(s.currentIndex, 0);
+    assert.deepEqual(s.participants, ["Sam", "Alex", "Jo"]);
+  });
+
+  test("skipping the current driver or break starts the selected driver", () => {
+    const paused = make({ paused: true });
+    logic.selectNextDriver(paused, 2);
+    logic.skipCurrentDriver(paused);
+    assert.equal(paused.currentIndex, 2);
+    assert.equal(paused.selectedNextIndex, null);
+
+    const onBreak = make({ popup: "break" });
+    logic.selectNextDriver(onBreak, 2);
+    assert.equal(logic.skipBreak(onBreak), true);
+    assert.equal(onBreak.currentIndex, 2);
+    assert.equal(onBreak.selectedNextIndex, null);
+  });
+});
+
 describe("Feature: break time", () => {
   test("popup is the regular one when the break interval is incomplete", () => {
     const s = make({ breakIntervalSeconds: 3000 });

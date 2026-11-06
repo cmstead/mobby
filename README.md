@@ -34,6 +34,9 @@ unsigned and use the default Electron icon.
 - **Randomize order:** shuffles the driver rotation list. The next driver will be
   the first person in the randomized list. This button is only active when there
   are two or more participants.
+- **Next:** choose a participant as the next driver without changing the rotation
+  order. The choice is available while the timer is stopped or paused, and the
+  next-driver controls are disabled while a timer is running.
 
 Both lists are saved locally.
 

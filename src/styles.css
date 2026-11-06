@@ -467,6 +467,16 @@ h1 {
   color: #e5dcff;
 }
 
+.participant.is-next {
+  border-color: #3e5b68;
+  background: #1d3039;
+}
+
+.participant.is-current.is-next {
+  border-color: #66588b;
+  background: #26233a;
+}
+
 .participant-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -517,6 +527,16 @@ h1 {
 .rotation-toggle:hover {
   background: #2f2947;
   color: #e5dcff;
+}
+
+.rotation-toggle[aria-pressed="true"] {
+  background: #2f2947;
+  color: #e5dcff;
+}
+
+.rotation-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .rotation-toggle:focus-visible {

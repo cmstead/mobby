@@ -85,10 +85,10 @@ function updateParticipants() {
     : count ? state.participants[state.currentIndex] : "Add your team";
   elements.driverLabel.textContent = state.phase === "break" ? "STEP AWAY" : "CURRENT DRIVER";
   elements.nextDriver.textContent = count
-    ? state.participants[(state.currentIndex + 1) % count]
+    ? state.participants[candidateIndex()]
     : "Add participants below";
   elements.teamHelper.textContent = count
-    ? "Driver order follows the list. “Sit out” keeps a name for later; × deletes it."
+    ? "Driver order follows the list. Select “Next” to choose who drives next."
     : "Add at least one driver to get started.";
   const skipDisabled = count < 2 || state.phase === "break";
   elements.skipTurn.disabled = skipDisabled;
@@ -102,14 +102,12 @@ function updateParticipants() {
     nameElement.textContent = name;
 
     if (count > 0 && index === state.currentIndex) {
-      item.classList.add("is-current");
       const currentTag = document.createElement("span");
       currentTag.className = "participant-tag";
       currentTag.textContent = "DRIVING";
       nameElement.append(currentTag);
     }
-
-    item.className = `participant${count > 0 && index === state.currentIndex ? " is-current" : ""}`;
+    item.className = `participant${count > 0 && index === state.currentIndex ? " is-current" : ""}${state.selectedNextIndex === index ? " is-next" : ""}`;
     const sitOutButton = document.createElement("button");
     sitOutButton.className = "rotation-toggle";
     sitOutButton.type = "button";
@@ -117,6 +115,15 @@ function updateParticipants() {
     sitOutButton.setAttribute("aria-label", `Remove ${name} from rotation`);
     sitOutButton.title = "Move to potential mobbers";
     sitOutButton.addEventListener("click", () => sitOut(index));
+    const selectNextButton = document.createElement("button");
+    selectNextButton.className = "rotation-toggle select-next";
+    selectNextButton.type = "button";
+    selectNextButton.textContent = "Next";
+    selectNextButton.setAttribute("aria-label", `Set ${name} as next driver`);
+    selectNextButton.setAttribute("aria-pressed", String(state.selectedNextIndex === index));
+    selectNextButton.disabled = state.running;
+    selectNextButton.title = state.running ? "Pause the timer to select the next driver" : "Set as next driver";
+    selectNextButton.addEventListener("click", () => selectNextDriver(index));
     const removeButton = document.createElement("button");
     removeButton.className = "remove-person";
     removeButton.type = "button";
@@ -126,7 +133,7 @@ function updateParticipants() {
     removeButton.addEventListener("click", () => removeParticipant(index));
     const actions = document.createElement("span");
     actions.className = "participant-actions";
-    actions.append(sitOutButton, removeButton);
+    actions.append(selectNextButton, sitOutButton, removeButton);
     item.append(nameElement, actions);
     elements.participantList.append(item);
   });
@@ -319,6 +326,11 @@ function deletePotential(index) {
 function randomizeDrivers() {
   logic.randomizeParticipants(state);
   persistSession();
+  render();
+}
+
+function selectNextDriver(index) {
+  if (!logic.selectNextDriver(state, index)) return;
   render();
 }
 
