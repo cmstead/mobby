@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Mobby the Mob Timer helps teams rotate drivers smoothly during mob programming sessions." />
+    <meta
+      name="description"
+      content="Mobby the Mob Timer helps teams rotate drivers smoothly during mob programming sessions."
+    />
     <title>Mobby the Mob Timer</title>
     <style>
       :root {
@@ -33,7 +36,11 @@
         margin: 0;
         min-height: 100vh;
         background:
-          radial-gradient(circle at top, rgba(167, 139, 250, 0.18), transparent 26%),
+          radial-gradient(
+            circle at top,
+            rgba(167, 139, 250, 0.18),
+            transparent 26%
+          ),
           linear-gradient(180deg, #0d1320 0%, var(--bg) 100%);
         color: var(--text);
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -151,7 +158,9 @@
         padding: 0.9rem 1.3rem;
         border: 1px solid transparent;
         font-weight: 700;
-        transition: transform 0.18s ease, opacity 0.18s ease;
+        transition:
+          transform 0.18s ease,
+          opacity 0.18s ease;
       }
 
       .button:hover {
@@ -159,7 +168,11 @@
       }
 
       .button.primary {
-        background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+        background: linear-gradient(
+          135deg,
+          var(--accent-strong),
+          var(--accent)
+        );
         color: #f2ebff;
         box-shadow: 0 18px 26px rgba(139, 92, 246, 0.28);
       }
@@ -175,7 +188,11 @@
         padding: 1.25rem;
         border: 1px solid var(--line);
         border-radius: 1.4rem;
-        background: linear-gradient(155deg, rgba(26, 39, 57, 0.98), rgba(17, 24, 39, 0.92));
+        background: linear-gradient(
+          155deg,
+          rgba(26, 39, 57, 0.98),
+          rgba(17, 24, 39, 0.92)
+        );
         box-shadow: 0 24px 50px var(--shadow);
       }
 
@@ -211,9 +228,15 @@
         background: rgba(148, 163, 184, 0.5);
       }
 
-      .traffic span:nth-child(1) { background: #f87171; }
-      .traffic span:nth-child(2) { background: #fbbf24; }
-      .traffic span:nth-child(3) { background: #34d399; }
+      .traffic span:nth-child(1) {
+        background: #f87171;
+      }
+      .traffic span:nth-child(2) {
+        background: #fbbf24;
+      }
+      .traffic span:nth-child(3) {
+        background: #34d399;
+      }
 
       .demo-body {
         padding: 1.2rem;
@@ -341,7 +364,7 @@
         border: 1px solid var(--line);
         border-radius: 1.2rem;
         padding: 1.4rem 1.3rem;
-        background: rgba(15, 23,42, 0.58);
+        background: rgba(15, 23, 42, 0.58);
       }
 
       .steps {
@@ -445,18 +468,35 @@
             <span class="eyebrow">Mob Programming Companion</span>
             <h1>Mobby the Mob Timer</h1>
             <p class="lead">
-              A lightweight desktop timer for mob programming sessions. Add your team,
-              choose how long each driver has, then start the rotation and keep every
-              voice in the loop.
+              A lightweight desktop timer for mob programming sessions. Add your
+              team, choose how long each driver has, then start the rotation and
+              keep every voice in the loop.
             </p>
             <div class="actions">
-              <a class="button primary" href="https://github.com/cmstead/mobby" target="_blank" rel="noreferrer">View project</a>
-              <a class="button secondary" href="https://github.com/cmstead/mobby/releases/tag/v1.0.0" target="_blank" rel="noreferrer">Latest Release</a>
+              <a
+                class="button primary"
+                href="https://github.com/cmstead/mobby"
+                target="_blank"
+                rel="noreferrer"
+                >View project</a
+              >
+              <a
+                class="button secondary"
+                href="https://github.com/cmstead/mobby/releases/tag/v1.0.0"
+                target="_blank"
+                rel="noreferrer"
+                >Latest Release</a
+              >
             </div>
           </div>
 
           <div class="demo-card" aria-label="App preview">
-            <img src="images/demo.png" alt="Mobby app preview" class="demo-window" style="width:100%;" />
+            <img
+              src="images/demo.png"
+              alt="Mobby app preview"
+              class="demo-window"
+              style="width: 100%"
+            />
           </div>
         </div>
       </section>
@@ -466,15 +506,24 @@
         <div class="feature-grid">
           <article class="card">
             <h3>Clear rotation</h3>
-            <p>Keep the selection order visible, randomize it when needed, and move people in and out without losing track of the session.</p>
+            <p>
+              Keep the selection order visible, randomize it when needed, and
+              move people in and out without losing track of the session.
+            </p>
           </article>
           <article class="card">
             <h3>Driver focus</h3>
-            <p>Each turn has a fixed driving window, with a strong prompt when it expires so the next person can take over without friction.</p>
+            <p>
+              Each turn has a fixed driving window, with a strong prompt when it
+              expires so the next person can take over without friction.
+            </p>
           </article>
           <article class="card">
             <h3>Built-in breaks</h3>
-            <p>Configure break timing and length, skip them when needed, and automatically resume the next driver's turn after the break ends.</p>
+            <p>
+              Configure break timing and length, skip them when needed, and
+              automatically resume the next driver's turn after the break ends.
+            </p>
           </article>
         </div>
       </section>
@@ -483,14 +532,38 @@
         <h2 class="section-title">Rotation list</h2>
         <div class="panel">
           <ul class="bullet-list">
-            <li><strong>Sit out:</strong> moves a mobber from the rotation to the “Potential mobbers” list without deleting them. If they were driving, the next mobber takes over.</li>
-            <li><strong>Rejoin:</strong> moves a potential mobber back to the end of the rotation.</li>
-            <li><strong>×:</strong> deletes a mobber entirely, from either list.</li>
-            <li><strong>Randomize order:</strong> shuffles the driver rotation list. The next driver becomes the first person in the randomized list. This button is only active when there are two or more participants.</li>
-            <li><strong>Select:</strong> choose a participant as the current driver without changing the rotation order. This is available while the timer is stopped or paused; driver selection is disabled while a timer is running.</li>
+            <li>
+              <strong>Sit out:</strong> moves a mobber from the rotation to the
+              “Potential mobbers” list without deleting them. If they were
+              driving, the next mobber takes over.
+            </li>
+            <li>
+              <strong>Rejoin:</strong> moves a potential mobber back to the end
+              of the rotation.
+            </li>
+            <li>
+              <strong>×:</strong> deletes a mobber entirely, from either list.
+            </li>
+            <li>
+              <strong>Randomize order:</strong> shuffles the driver rotation
+              list. The next driver becomes the first person in the randomized
+              list. This button is only active when there are two or more
+              participants.
+            </li>
+            <li>
+              <strong>Select:</strong> choose a participant as the current
+              driver without changing the rotation order. This is available
+              while the timer is stopped or paused; driver selection is disabled
+              while a timer is running.
+            </li>
           </ul>
           <p class="notes">
-            On a turn-expiry, break, break-end, or resume popup, select <strong>Choose driver</strong> to access the rotation list. Select a participant to set them as the current driver, then select <strong>Continue to popup</strong> to return to the same prompt. If the rotation is empty, rejoin or add a participant before continuing.
+            On a turn-expiry, break, break-end, or resume popup, select
+            <strong>Choose driver</strong> to access the rotation list. Select a
+            participant to set them as the current driver, then select
+            <strong>Continue to popup</strong> to return to the same prompt. If
+            the rotation is empty, rejoin or add a participant before
+            continuing.
           </p>
         </div>
       </section>
@@ -499,8 +572,16 @@
         <h2 class="section-title">Skipping drivers</h2>
         <div class="panel">
           <ul class="bullet-list">
-            <li>At the next-driver popup, press “Skip &lt;name&gt;” to pass over the selected driver. Each press moves to the following person in the rotation, then starts the turn with the driver you want.</li>
-            <li>When resuming a paused timer, pressing Start/Resume asks whether to resume the current driver or skip them. “Keep paused” or Esc leaves the timer paused.</li>
+            <li>
+              At the next-driver popup, press “Skip &lt;name&gt;” to pass over
+              the selected driver. Each press moves to the following person in
+              the rotation, then starts the turn with the driver you want.
+            </li>
+            <li>
+              When resuming a paused timer, pressing Start/Resume asks whether
+              to resume the current driver or skip them. “Keep paused” or Esc
+              leaves the timer paused.
+            </li>
           </ul>
         </div>
       </section>
@@ -509,14 +590,44 @@
         <h2 class="section-title">Breaks</h2>
         <div class="panel">
           <ul class="bullet-list">
-            <li>Time between breaks defaults to 50 minutes and break length defaults to 10 minutes; both are configurable in minutes.</li>
-            <li>Once the driving time since the last break reaches the break interval, the next time a driver finishes, the prompt offers a break instead of the next driver. Otherwise the regular next-driver prompt appears.</li>
-            <li>When the break ends, a prompt brings the next driver’s session to the front.</li>
-            <li><strong>Skip break:</strong> the break prompt also offers “Skip break”. It skips the break, resets the time until the next break, and starts the next driver’s turn.</li>
+            <li>
+              Time between breaks defaults to 50 minutes and break length
+              defaults to 10 minutes; both are configurable in minutes.
+            </li>
+            <li>
+              Once the driving time since the last break reaches the break
+              interval, the next time a driver finishes, the prompt offers a
+              break instead of the next driver. Otherwise the regular
+              next-driver prompt appears.
+            </li>
+            <li>
+              When the break ends, a prompt brings the next driver’s session to
+              the front.
+            </li>
+            <li>
+              <strong>Skip break:</strong> the break prompt also offers “Skip
+              break”. It skips the break, resets the time until the next break,
+              and starts the next driver’s turn.
+            </li>
           </ul>
-          <p class="notes">Your participant list and timer settings are saved locally in the app.</p>
+          <p class="notes">
+            Your participant list and timer settings are saved locally in the
+            app.
+          </p>
         </div>
       </section>
     </main>
+
+    <script
+      async
+      src="https://www.googletagmanager.com/gtm.js?id=GTM-PLP2M6BJ"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+    </script>
   </body>
 </html>
