@@ -16,10 +16,14 @@ async function addPerson(page, name) {
 // Opens the app with a controllable clock, a recording window bridge, and a seeded roster.
 async function openApp(page, { names = ["Sam", "Alex"], potential = [], duration = 1, breakInterval = 2, breakDuration = 1 } = {}) {
   await page.addInitScript(() => {
-    window.__bridge = { front: 0, release: 0 };
+    window.__bridge = { front: 0, release: 0, fullScreen: 0, minimized: 0 };
     window.mobTimerWindow = {
       bringExpiryToFront: () => window.__bridge.front++,
       releaseExpiryToFront: () => window.__bridge.release++,
+      setFullScreen: (value) => {
+        window.__bridge.fullScreen += value ? 1 : 0;
+      },
+      minimizeWindow: () => window.__bridge.minimized++,
     };
   });
   await page.clock.install({ time: new Date("2026-01-01T09:00:00") });
@@ -43,5 +47,7 @@ async function advance(page, minutes) {
 const popup = (page) => page.locator("#expiry-popup");
 const title = (page) => page.locator("#expiry-title");
 const front = (page) => page.evaluate(() => window.__bridge.front);
+const fullscreen = (page) => page.evaluate(() => window.__bridge.fullScreen);
+const minimized = (page) => page.evaluate(() => window.__bridge.minimized);
 
-module.exports = { APP_URL, setSetting, openApp, advance, popup, title, front };
+module.exports = { APP_URL, setSetting, openApp, advance, popup, title, front, fullscreen, minimized };

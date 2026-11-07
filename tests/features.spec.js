@@ -1,5 +1,49 @@
 const { test, expect } = require("@playwright/test");
-const { APP_URL, setSetting, openApp, advance, popup, title, front } = require("./helpers");
+const { APP_URL, setSetting, openApp, advance, popup, title, front, fullscreen, minimized } = require("./helpers");
+
+test.describe("Feature: full screen", () => {
+  test("brings the window to the front and goes full screen when the timer expires", async ({ page }) => {
+    await openApp(page, { breakInterval: 50 });
+    await page.locator("#start-pause").click();
+    await advance(page, 1);
+
+    await expect(popup(page)).toBeVisible();
+    await expect(page.locator("#session-status")).toHaveText("WAITING");
+    expect(await front(page)).toBeGreaterThan(0);
+    expect(await fullscreen(page)).toBeGreaterThan(0);
+  });
+
+  test("minimizes the application when a fresh session starts", async ({ page }) => {
+    await openApp(page, { breakInterval: 50 });
+    await page.locator("#start-pause").click();
+
+    await expect(page.locator("#session-status")).toHaveText("IN PROGRESS");
+    expect(await minimized(page)).toBeGreaterThan(0);
+  });
+
+  test("minimizes the application when a new driver starts from the fullscreen popup", async ({ page }) => {
+    await openApp(page, { breakInterval: 50 });
+    await page.locator("#start-pause").click();
+    await advance(page, 1);
+
+    await expect(popup(page)).toBeVisible();
+    const beforeMinimize = await minimized(page);
+    await page.locator("#start-next-turn").click();
+
+    await expect(page.locator("#session-status")).toHaveText("IN PROGRESS");
+    expect(await minimized(page)).toBeGreaterThan(beforeMinimize);
+  });
+
+  test("does nothing when an action other than starting a session happens", async ({ page }) => {
+    await openApp(page, { breakInterval: 50 });
+    await page.locator("#start-pause").click();
+    const initialMinimizes = await minimized(page);
+
+    await page.locator("#start-pause").click();
+    await expect(page.locator("#session-status")).toHaveText("PAUSED");
+    expect(await minimized(page)).toBe(initialMinimizes);
+  });
+});
 
 test.describe("Feature: Pop up when time is up", () => {
   test("popup covers the screen, offers next driver, and starts a new session", async ({ page }) => {

@@ -225,6 +225,7 @@ function updateExpiryPopup() {
     if (elements.expiryPopup.open) {
       elements.expiryPopup.close();
       window.mobTimerWindow?.releaseExpiryToFront();
+      window.mobTimerWindow?.setFullScreen?.(false);
     }
     document.documentElement.classList.remove("modal-open");
     return;
@@ -270,7 +271,10 @@ function updateExpiryPopup() {
   if (!elements.expiryPopup.open) {
     elements.expiryPopup.showModal();
     document.documentElement.classList.add("modal-open");
-    if (state.popup !== "resume") window.mobTimerWindow?.bringExpiryToFront();
+    if (state.popup !== "resume") {
+      window.mobTimerWindow?.bringExpiryToFront();
+      window.mobTimerWindow?.setFullScreen?.(true);
+    }
   }
 }
 
@@ -315,6 +319,7 @@ function tick() {
 
 function startTimer() {
   if (state.participants.length === 0) return;
+  const shouldMinimize = !state.running && !state.paused && state.popup !== "resume";
   if (state.remainingSeconds <= 0) state.remainingSeconds = phaseSeconds();
   if (state.phase === "driving") state.currentDriverSelected = false;
   state.popup = null;
@@ -324,6 +329,7 @@ function startTimer() {
   state.deadline = Date.now() + state.remainingSeconds * 1000;
   stopTicking();
   state.tickHandle = window.setInterval(tick, 200);
+  if (shouldMinimize) window.mobTimerWindow?.minimizeWindow?.();
   render();
 }
 

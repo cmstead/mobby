@@ -10,7 +10,13 @@ how long each driver has, then start the rotation.
 3. Run `npm start`.
 
 When a turn ends, a full-window prompt announces the next driver and brings the
-app in front of other windows. Click the button to begin their turn.
+app in front of other windows. The window goes full screen for that prompt, then
+returns to normal after the popup is closed. Click the button to begin their turn.
+
+When a fresh session starts from the stopped state, the app minimizes itself to
+keep the timer focused while the driver works without stealing attention from the
+rest of the desktop. Other actions, like pausing or resuming, leave the window as
+it is.
 
 ## Build
 

@@ -9,6 +9,7 @@ ipcMain.on("mob-timer:expiry-open", (event) => {
   window.show();
   window.focus();
   window.moveTop();
+  window.setFullScreen(true);
 });
 
 ipcMain.on("mob-timer:expiry-close", (event) => {
@@ -16,6 +17,21 @@ ipcMain.on("mob-timer:expiry-close", (event) => {
   if (!window || window.isDestroyed()) return;
 
   window.setAlwaysOnTop(false);
+  window.setFullScreen(false);
+});
+
+ipcMain.on("mob-timer:set-fullscreen", (event, shouldFullScreen) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || window.isDestroyed()) return;
+
+  window.setFullScreen(Boolean(shouldFullScreen));
+});
+
+ipcMain.on("mob-timer:minimize-window", (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || window.isDestroyed()) return;
+
+  window.minimize();
 });
 
 function createWindow() {
